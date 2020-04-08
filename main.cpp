@@ -206,7 +206,7 @@ public:
     string manoeuvresString()
     {
         string res = "[";
-        int size =  mouvements.size();
+        int size = mouvements.size();
         for (auto i = 0; i < size; i++)
         {
             ostringstream ss;
@@ -284,9 +284,79 @@ double heuristiqueAngle(const PointAngle &pointAngle, const PointAngle &butPoint
 {
     return rayonBraquage * diffAngle(pointAngle.angleRad, butPointAngle.angleRad);
 }
-double heuristique(const PointAngle &pointAngle, const PointAngle &butPointAngle, const double rayonBraquage)
+
+double heuristique(const PointAngle &pointAngle, const PointAngle &butPointAngle, const double rayonBraquage, const double toleranceAngle = 0.0)
 {
-    return max(distance(pointAngle, butPointAngle), heuristiqueAngle(pointAngle, butPointAngle, rayonBraquage));
+    return max(distance(pointAngle, butPointAngle), heuristiqueAngle(pointAngle, butPointAngle, rayonBraquage) - toleranceAngle);
+}
+
+void transformeButVersRefBraquage(const PointAngle &pointAngle, const PointAngle &butPointAngle, double rayonBraquage, double &xOut, double &yOut)
+{
+    xOut = butPointAngle.x;
+    yOut = butPointAngle.y;
+    // translation
+    xOut -= pointAngle.x;
+    yOut -= pointAngle.y;
+    // scale
+    xOut /= rayonBraquage;
+    yOut /= rayonBraquage;
+    // rotation
+    // butPointAngleAngle = butPointAngleAngle % (math.pi /2) # faux je pense. Les symétries en angle, pas important pour l'instant
+    // double butPointAngleAngle = butPointAngle.angleRad - pointAngle.angleRad;
+
+    rotation(xOut, yOut, 0, 0, -pointAngle.angleRad, xOut, yOut);
+    // symétrie gauche droite et symétrie avant arriere =>
+    xOut = abs(xOut);
+    yOut = abs(yOut);
+}
+
+void calculMouvementsInaccessible()
+{
+}
+
+double heuristiqueMeilleureDistanceInaccessible(const PointAngle &pointAngle, const PointAngle &butPointAngle, double rayonBraquage, double toleranceAngle = 0)
+{
+    double butX, butY, distanceTotale;
+
+    transformeButVersRefBraquage(pointAngle, butPointAngle, rayonBraquage, butX, butY);
+    bool inaccessible = (butX * butX + (butY - 1.0) * (butY - 1.0)) < 1.0; //dans le cercle rayon de braquage
+    if (inaccessible)
+    {
+        // dans le cercle, on peut calculer les manoeuvres.
+        // addition d'une manoeuvre où on recule, une où on avance. dist1, dist2
+        // on utilise forcément le côté "vert", donc une rotation
+        // C => centre du cercle du bas, (0, -1)
+        // l = vecteur C => But
+        double lY = butY + 1.0;
+        double l = sqrt(butX * butX + lY * lY);
+
+        double angleL = atan2(lY, butX) - M_PI / 2.0;
+        // because reference is y axis, not x axis
+        // al kashi : c² = b² + a² - 2ab*gamma (gamma1 = angle F-C-But)
+        // => gamma1 = acos( (a²+b²-c²)/2ab)
+        // or b = 2, a = 1, c = l
+        // on obtient gamma1 = acos( (l²+3)/4l)
+        double gamma1 = acos((l * l + 3.0) / (4.0 * l));
+        double dist1 = gamma1 - angleL;
+        //  on réapplique Al kashi avec l'autre angle
+        //  a=1, b = 2, c=l, on obtient
+        //  acos( (5-l²) / 4)
+        double gamma2 = acos((5.0 - l * l) / 4.0);
+        distanceTotale = dist1 + gamma2;
+    }
+    else
+    {
+        double longueurL = sqrt(butX * butX + (butY - 1.0) * (butY - 1.0));
+        double longueurSegment = sqrt(longueurL * longueurL - 1.0);
+
+        double angleL = atan2(butY - 1.0, butX);
+        double angleTriangle = acos(1.0 / longueurL);
+        double angle = angleL - angleTriangle + (M_PI / 2.0);
+        distanceTotale = angle + longueurSegment;
+    }
+    // correction scaling
+    distanceTotale *= rayonBraquage;
+    return max(heuristiqueAngle(pointAngle, butPointAngle, rayonBraquage) - toleranceAngle, distanceTotale);
 }
 
 PointAngle *prendreMeilleurCandidat(list<PointAngle *> &pointsAChercher, const PointAngle &butPointAngle, double rayonBraquage)
@@ -297,7 +367,8 @@ PointAngle *prendreMeilleurCandidat(list<PointAngle *> &pointsAChercher, const P
     for (auto pointIterator = pointsAChercher.begin(); pointIterator != pointsAChercher.end(); pointIterator++)
     {
         estimation = 0;
-        if ((*pointIterator)->estimation != 0) {
+        if ((*pointIterator)->estimation != 0)
+        {
             estimation = (*pointIterator)->estimation;
         }
         else
@@ -358,7 +429,6 @@ bool chercherMeilleureManoeuvre(
         PointAngle *candidat = prendreMeilleurCandidat(pointsAChercher, butPointAngle, rayonBraquage);
         cout << *candidat << endl;
 
-        
         if (iterations % 100 == 0)
         {
             cout << iterations << " ";
@@ -422,14 +492,44 @@ void testRotation()
     cout << "hello gateau : " << xr << ", " << yr << "  ok" << endl;
 }
 
+void testHeuristiqueInaccessible()
+{
+    PointAngle start = PointAngle(0, 0, 0);
+    double epsilon = 0.0000000001;
+    bool test1 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 1, 0), 1.0)  - (acos(7.0 / 8.0) + acos(1.0 / 4.0)) < epsilon;
+    bool test2 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 2, 0), 1.0)   - (acos(-1.0) + acos(1.0))            < epsilon;;
+    bool test3 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 0, 0), 1.0)   - 0.0                                 < epsilon;
+
+    cout << "quand l = 2 " << test1 << endl;
+    cout << "quand l = 3 " << test2 << endl;
+    cout << "quand l = 1 " << test3 << endl;
+}
+
+/*
+Améliorations possibles :
+puisque j'utilise des pointeurs de toutes façons, je peux mettre un pointeur vers pere dans PointAngle,
+et du coup virer la structure compliquée pour std::vector<tuple> pour stocker les mouvements.
+Je peux faire l'optimiser où l'heuristique augmente jamais.
+Je peux implémenter la fonction heuristique inaccessible, comme c'est fait en python 
+=> environ facteur 4 sur les cas compliqués.
+Ou je peux utiliser un pas de 0.3 ou 0.25 au lieu de 0.2...
+
+Sinon, fonction de xavier pour les cas compliqués ?
+Je rajoute un paramètres avant, bool, et la fonction renvoie le truc ?
+*/
 int main()
 {
     //testRotation();
     //testMouvements();
+
+    testHeuristiqueInaccessible();
+
+    /*
     PointAngle but(0.0, 0.7, 0.0);
 
     chercherMeilleureManoeuvre(but);
 
+    // */
     double wait = 0.f;
     cin >> wait;
 
