@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <list>
+#include <algorithm>
 
 using namespace std;
 
@@ -46,18 +47,19 @@ public:
     double angleRad;
     double distanceParcourue;
     double estimation;
-    vector<pair<MOUVEMENT, double>> mouvements;
+    MOUVEMENT mouvement;
+    PointAngle *pere;
 
-    PointAngle() : x(0), y(0), angleRad(0), distanceParcourue(0), estimation(0), mouvements(vector<pair<MOUVEMENT, double>>())
+    PointAngle() : x(0), y(0), angleRad(0), distanceParcourue(0), estimation(0), pere(NULL), mouvement(STARTING)
     {
     }
-    PointAngle(double _x, double _y, double _angleRad) : x(_x), y(_y), angleRad(_angleRad), distanceParcourue(0), estimation(0), mouvements(vector<pair<MOUVEMENT, double>>())
+    PointAngle(double _x, double _y, double _angleRad) : x(_x), y(_y), angleRad(_angleRad), distanceParcourue(0), estimation(0), pere(NULL), mouvement(STARTING)
     {
     }
 
     PointAngle(double _x, double _y, double _angleRad,
-               double _distanceParcouruePere, MOUVEMENT mouvement, vector<pair<MOUVEMENT, double>> &mouvementsPere, double pas)
-        : x(_x), angleRad(0.f), y(_y), distanceParcourue(_distanceParcouruePere + pas), estimation(0.f), mouvements(vector<pair<MOUVEMENT, double>>())
+               double _distanceParcourue, MOUVEMENT _mouvement, PointAngle *_pere)
+        : x(_x), angleRad(0.f), y(_y), distanceParcourue(_distanceParcourue), estimation(0.f), mouvement(_mouvement), pere(_pere)
     {
         if (_angleRad <= -(M_PI))
         {
@@ -70,22 +72,6 @@ public:
         else
         {
             angleRad = _angleRad;
-        }
-        //On recopie toutes les valeurs...
-        //Si la derniere valeur = mouvement, on additione
-        //Sinon, on rajoute
-        for (int i = 0; i < mouvementsPere.size(); i++)
-        {
-            mouvements.push_back(mouvementsPere[i]);
-        }
-
-        if (mouvementsPere.size() != 0 && mouvementsPere.back().first == mouvement)
-        {
-            mouvements.back() = make_pair(mouvements.back().first, mouvements.back().second + pas);
-        }
-        else
-        {
-            mouvements.push_back(make_pair(mouvement, pas));
         }
     }
 
@@ -114,7 +100,7 @@ public:
         vecteurAngle(xr, yr);
         double xFils = x + xr * pas;
         double yFils = y + yr * pas;
-        return new PointAngle(xFils, yFils, angleRad, distanceParcourue, AVANCE, mouvements, pas);
+        return new PointAngle(xFils, yFils, angleRad, distanceParcourue + pas, AVANCE, this);
     }
     PointAngle *recule(double pas)
     {
@@ -122,7 +108,7 @@ public:
         vecteurAngle(xr, yr);
         double xFils = x - xr * pas;
         double yFils = y - yr * pas;
-        return new PointAngle(xFils, yFils, angleRad, distanceParcourue, RECULE, mouvements, pas);
+        return new PointAngle(xFils, yFils, angleRad, distanceParcourue + pas, RECULE, this);
     }
     PointAngle *avantDroit(double pas, double rayonBraquage)
     {
@@ -132,7 +118,7 @@ public:
         double yCentre = y + rayonBraquage * yr;
         double xPos, yPos;
         rotation(x, y, xCentre, yCentre, angleRotation, xPos, yPos);
-        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue, AVANT_DROIT, mouvements, pas);
+        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue + pas, AVANT_DROIT, this);
     }
     PointAngle *avantGauche(double pas, double rayonBraquage)
     {
@@ -142,7 +128,7 @@ public:
         double yCentre = y + rayonBraquage * yr;
         double xPos, yPos;
         rotation(x, y, xCentre, yCentre, angleRotation, xPos, yPos);
-        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue, AVANT_GAUCHE, mouvements, pas);
+        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue + pas, AVANT_GAUCHE, this);
     }
     PointAngle *arriereDroit(double pas, double rayonBraquage)
     {
@@ -152,7 +138,7 @@ public:
         double yCentre = y + rayonBraquage * yr;
         double xPos, yPos;
         rotation(x, y, xCentre, yCentre, angleRotation, xPos, yPos);
-        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue, ARRIERE_DROIT, mouvements, pas);
+        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue + pas, ARRIERE_DROIT, this);
     }
     PointAngle *arriereGauche(double pas, double rayonBraquage)
     {
@@ -162,7 +148,7 @@ public:
         double yCentre = y + rayonBraquage * yr;
         double xPos, yPos;
         rotation(x, y, xCentre, yCentre, angleRotation, xPos, yPos);
-        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue, ARRIERE_GAUCHE, mouvements, pas);
+        return new PointAngle(xPos, yPos, angleRad + angleRotation, distanceParcourue + pas, ARRIERE_GAUCHE, this);
     }
 
     PointAngle *bouge(MOUVEMENT mouvement, double pas, double rayonBraquage, unsigned int nombreDeFois = 1)
@@ -202,33 +188,57 @@ public:
     {
         return abs(x - p2.x) < epsilonMetres && abs(y - p2.y) < epsilonMetres && abs(angleRad - p2.angleRad) < epsilonRad;
     }
-
-    string manoeuvresString()
-    {
-        string res = "[";
-        int size = mouvements.size();
-        for (auto i = 0; i < size; i++)
-        {
-            ostringstream ss;
-            ss << mouvements[i].second;
-            string s(ss.str());
-
-            res += "('" + MOUVEMENTS_TEXTE[mouvements[i].first] + "', " + s + ")";
-            if (i != size - 1)
-            {
-                res += ", ";
-            }
-        }
-
-        res += "]";
-        return res;
-    }
 };
 
 ostream &operator<<(ostream &strm, const PointAngle &pa)
 {
     return strm << "PointAngle(x = " << pa.x << ", y = " << pa.y << ", angle = " << (pa.angleRad * 180.0 / M_PI)
                 << ", dist = " << pa.distanceParcourue << " )";
+}
+
+string resumerManoeuvres(PointAngle *pa)
+{
+    vector<PointAngle *> chaineDesPeres;
+
+    PointAngle *ancetre = pa;
+
+    while (ancetre->pere != NULL)
+    {
+        chaineDesPeres.push_back(ancetre);
+        ancetre = ancetre->pere;
+    }
+    // les vieux d'abord !
+    reverse(chaineDesPeres.begin(), chaineDesPeres.end());
+    // list des manoeuvres avec (manoeuvre, distanceParcourue)
+    vector<pair<MOUVEMENT, double>> chaineMouvements{pair<MOUVEMENT, double>(chaineDesPeres[0]->mouvement, chaineDesPeres[0]->distanceParcourue)};
+    double ancienneDistanceParcourue = chaineDesPeres[0]->distanceParcourue;
+
+    for (unsigned int i = 1; i < chaineDesPeres.size(); i++)
+    {
+        double pas = chaineDesPeres[i]->distanceParcourue - ancienneDistanceParcourue;
+        ancienneDistanceParcourue = chaineDesPeres[i]->distanceParcourue;
+        if (chaineMouvements.back().first == chaineDesPeres[i]->mouvement)
+        {
+            chaineMouvements.back().second = round((chaineMouvements.back().second + pas) * 1000.0) / 1000.0;
+        }
+        else
+        {
+            chaineMouvements.push_back(pair<MOUVEMENT, double>(chaineDesPeres[i]->mouvement, round(pas * 1000.0) / 1000.0));
+        }
+    }
+
+    string res = "";
+    for (unsigned int i = 0; i < chaineMouvements.size(); i++)
+    {
+        std::ostringstream strs;
+        strs << "(" << MOUVEMENTS_TEXTE[chaineMouvements[i].first] << ", " << chaineMouvements[i].second << ")";
+        if (i != chaineMouvements.size() - 1)
+        {
+            strs << ",";
+        }
+        res += strs.str();
+    }
+    return res;
 }
 
 void testMouvements()
@@ -250,7 +260,7 @@ void testMouvements()
     for (unsigned int i = 0; i < 6; i++)
     {
         PointAngle *resultat = depart.bouge(mouvements[i], pas, rayonBraquage, nbrMouvements);
-        cout << *resultat << " manoeuvres : " << resultat->manoeuvresString() << endl;
+        cout << *resultat << " manoeuvres : " << resumerManoeuvres(resultat) << endl;
         delete resultat;
     }
 }
@@ -359,7 +369,7 @@ double heuristiqueMeilleureDistanceInaccessible(const PointAngle &pointAngle, co
     return max(heuristiqueAngle(pointAngle, butPointAngle, rayonBraquage) - toleranceAngle, distanceTotale);
 }
 
-PointAngle *prendreMeilleurCandidat(list<PointAngle *> &pointsAChercher, const PointAngle &butPointAngle, double rayonBraquage)
+PointAngle *prendreMeilleurCandidat(list<PointAngle *> &pointsAChercher, const PointAngle &butPointAngle, double rayonBraquage, double toleranceAngle)
 {
     double meilleureEstimation = 100000000, estimation = 0;
     list<PointAngle *>::iterator meilleurCandidatIterator = pointsAChercher.begin();
@@ -373,7 +383,11 @@ PointAngle *prendreMeilleurCandidat(list<PointAngle *> &pointsAChercher, const P
         }
         else
         {
-            (*pointIterator)->estimation = estimation = (*pointIterator)->distanceParcourue + heuristique(**pointIterator, butPointAngle, rayonBraquage);
+            estimation = (*pointIterator)->distanceParcourue + heuristiqueMeilleureDistanceInaccessible(**pointIterator, butPointAngle, rayonBraquage, toleranceAngle);
+            if( (*pointIterator)->pere != NULL) {
+                estimation = max(estimation, (*pointIterator)->pere->estimation);
+            }
+            (*pointIterator)->estimation = estimation;
         }
 
         //cout << **pointIterator << " with estimation " << estimation << endl;
@@ -426,8 +440,8 @@ bool chercherMeilleureManoeuvre(
 
     while (limite == -1 || iterations < limite)
     {
-        PointAngle *candidat = prendreMeilleurCandidat(pointsAChercher, butPointAngle, rayonBraquage);
-        cout << *candidat << endl;
+        PointAngle *candidat = prendreMeilleurCandidat(pointsAChercher, butPointAngle, rayonBraquage, toleranceAngle);
+        //cout << *candidat << endl;
 
         if (iterations % 100 == 0)
         {
@@ -442,7 +456,7 @@ bool chercherMeilleureManoeuvre(
             {
                 cout << "but atteint en " << iterations << " iterations" << endl;
                 cout << *successeur << endl;
-                cout << successeur->manoeuvresString() << endl;
+                cout << resumerManoeuvres(successeur) << endl;
                 nettoyerListes(pointsAChercher, pointsDejaCherches);
                 return true;
             }
@@ -496,9 +510,10 @@ void testHeuristiqueInaccessible()
 {
     PointAngle start = PointAngle(0, 0, 0);
     double epsilon = 0.0000000001;
-    bool test1 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 1, 0), 1.0)  - (acos(7.0 / 8.0) + acos(1.0 / 4.0)) < epsilon;
-    bool test2 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 2, 0), 1.0)   - (acos(-1.0) + acos(1.0))            < epsilon;;
-    bool test3 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 0, 0), 1.0)   - 0.0                                 < epsilon;
+    bool test1 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 1, 0), 1.0) - (acos(7.0 / 8.0) + acos(1.0 / 4.0)) < epsilon;
+    bool test2 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 2, 0), 1.0) - (acos(-1.0) + acos(1.0)) < epsilon;
+    ;
+    bool test3 = heuristiqueMeilleureDistanceInaccessible(start, PointAngle(0, 0, 0), 1.0) - 0.0 < epsilon;
 
     cout << "quand l = 2 " << test1 << endl;
     cout << "quand l = 3 " << test2 << endl;
@@ -521,11 +536,10 @@ int main()
 {
     //testRotation();
     //testMouvements();
+    //testHeuristiqueInaccessible();
 
-    testHeuristiqueInaccessible();
-
-    /*
-    PointAngle but(0.0, 0.7, 0.0);
+    
+    PointAngle but(0.0, 1.7, 0.0);
 
     chercherMeilleureManoeuvre(but);
 
