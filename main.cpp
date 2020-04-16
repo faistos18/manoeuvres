@@ -210,7 +210,7 @@ string resumerManoeuvres(PointAngle *pa)
     // les vieux d'abord !
     reverse(chaineDesPeres.begin(), chaineDesPeres.end());
     // list des manoeuvres avec (manoeuvre, distanceParcourue)
-    vector<pair<MOUVEMENT, double>> chaineMouvements{pair<MOUVEMENT, double>(chaineDesPeres[0]->mouvement, chaineDesPeres[0]->distanceParcourue)};
+    vector< pair<MOUVEMENT, double> > chaineMouvements { pair<MOUVEMENT, double>(chaineDesPeres[0]->mouvement, chaineDesPeres[0]->distanceParcourue)};
     double ancienneDistanceParcourue = chaineDesPeres[0]->distanceParcourue;
 
     for (unsigned int i = 1; i < chaineDesPeres.size(); i++)
