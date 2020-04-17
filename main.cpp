@@ -738,6 +738,8 @@ int main()
         cout << "mouvement 2 : " << MOUVEMENTS_TEXTE[mouvement2] << " avec distance " << distance2 << endl;
         cout << "arrivee avec un angle de " << (angleArrivee * 180.0 / M_PI) << " deg" <<endl;
     }
-
+    
+    double wait;
+    cin >> wait;
     return 0;
 }

@@ -204,90 +204,6 @@ void chercherMeilleureManoeuvreSansAngle(PointAngle &pointAngle, const PointAngl
         *outAngleArrivee = -(*outAngleArrivee);
 }
 
-struct MouvementPendant
-{
-    MOUVEMENT mouvement;
-    double distance;
-};
-
-MouvementPendant complementaire(const MouvementPendant &mp)
-{
-    if (mp.mouvement == AVANCE || mp.mouvement == RECULE)
-    {
-        throw "pas de complementaire pour avance et recule";
-    }
-    else
-    {
-        MouvementPendant res;
-        if (mp.mouvement == AVANT_DROIT)
-            res.mouvement = ARRIERE_DROIT;
-        else if (res.mouvement == AVANT_GAUCHE)
-            res.mouvement = ARRIERE_GAUCHE;
-        else if (res.mouvement == ARRIERE_DROIT)
-            res.mouvement = AVANT_DROIT;
-        else //ARRIERE_GAUCHE
-            res.mouvement = AVANT_GAUCHE;
-        // A tester + blinder ! surement faux !
-        res.distance = 2.0 * M_PI - mp.distance;
-        return res;
-    }
-}
-typedef vector<MouvementPendant> Manoeuvre;
-
-/*
-Depart : D. Arrivée : A.
-Il y a deux points angles, donc 4 CIR. D1, D2, A1, A2.
-Donc 4 couples de cercles (D1A1, D1A2, D2A1, D2A2)
-Chaque couple a deux tangentes aux deux cercles.
-Si les deux cercles n'ont aucune surface commune ( distance entre les centres > 2 rayons), alors on a aussi 2 tangentes croisées.
-Ca nous fait donc 4*4 = 16 manoeuvres de type tourner => avancer(ou reculer) => tourner.
-Sauf que, pour atteindre un point sur un CIR, on peut y aller en avant droit, ou en arrière droit (on passe par l'autre côté), donc.
-Donc on a encore un facteur 4, donc 64 manoeuvres. MAIS ces manoeuvres sont forcément plus longues que si on passe à chaque fois par l'autre côté.
-MAIS si on veut absolument commencer par reculer/avancer ou éviter de passer sur une zone, elles peuvent être intéressantes, donc on peut les inclure, ou pas.
-
-
-Il y a 8 tangentes 
-
-d'abord en python : je vais décomposer une manoeuvre en plein de petites et les afficher toutes. Afficher aussi les cercles ?
-OUI, parce que c'est pas encore totalement clair ces histoires de sens.
-J'ai l'impression que les croisés sont toujours plus longues ET inversent le sens.
-
-*/
-vector<Manoeuvre> manoeuvresSansAngles(
-    const PointAngle &depart, const PointAngle &arrivee,
-    double rayonBraquage = 1.90,
-    bool departQueEnArriere = false,
-    bool departQueEnAvant = false,
-    bool passerParAutreCoteDepart = false,
-    bool passerParAutreCotéArrivee = false,
-    bool seulementLaPlusCourte= false)
-{
-    //Deja, on se met dans le referentiel ou pa1 = (0,0,0) ?
-    //Et rayonDeBraquage = 1.0
-    //Comme ça, on a déjà ses cercles.
-
-    if (passerParAutreCoteDepart)
-    {
-        //le complementaire
-        //pour chaque manoeuvre, on prends le mouvement le MouvementPendant du depart, et on le fait dans le sens inverse.
-    }
-    if (passerParAutreCotéArrivee)
-    {
-        //Pareil à l'arrivee
-    }
-}
-
-vector<Manoeuvre> tangentesDeuxCIR(bool pa1CirDroite, PointAngle &pa2, bool pa2cirDroite, bool inclureTangentesCroisees = true)
-{
-    //déjà : coordonnées des centres
-    // puis
-    if (inclureTangentesCroisees)
-    {
-        //trouver centre des deux cercles.
-        // trouver angle alpha acos (2/L) ou L = distance deux centres
-    }
-}
-
 int main()
 {
     cout << " Calculer manoeuvre sans angle" << endl;
@@ -308,5 +224,7 @@ int main()
     cout << "mouvement 2 : " << MOUVEMENTS_TEXTE[mouvement2] << " avec distance " << distance2 << endl;
     cout << "arrivee avec un angle de " << (angleArrivee * 180.0 / M_PI) << " deg" << endl;
 
+    double wait;
+    cin >> wait;
     return 0;
 }
